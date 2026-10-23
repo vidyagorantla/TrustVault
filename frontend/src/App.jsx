@@ -353,6 +353,15 @@ useEffect(() => {
   }
 }, [globalAuditOpen]);
 
+useEffect(() => {
+  if (auditDocumentId !== null) {
+    document.getElementById('document-audit')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }
+}, [auditDocumentId]);
+
   async function revokeAccess(documentId, recipientEmail) {
     const confirmed = window.confirm(
       `Revoke all access for ${recipientEmail} to this document?`
@@ -690,334 +699,8 @@ async function handleRevokeRecipient(recipient) {
             )}
           </section>
 
-          <section className="tv-panel" id="sharing">
-            <div className="tv-panel-heading">
-              <div>
-                <h2>Access Control</h2>
-                <p>Share a document with a registered TrustVault user.</p>
-              </div>
-            </div>
-
-            <div className="tv-info-banner">
-              <span>ⓘ</span>
-              <p>
-                Choose a document you own and assign the minimum permission
-                the recipient needs. Only registered users can be selected
-                by email.
-              </p>
-            </div>
-
-            <form
-              className="tv-share-form"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                setError('');
-                setSuccess('');
-
-                const form = event.currentTarget;
-                const formData = new FormData(form);
-                const documentId = formData.get('documentId');
-                const recipientEmail = formData.get('recipientEmail');
-                const permission = formData.get('permission');
-
-                try {
-                  const response = await apiRequest(
-                    `/api/documents/${documentId}/permissions`,
-                    {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        email: recipientEmail,
-                        permission,
-                      }),
-                    }
-                  );
-
-                  const data = await response.json().catch(() => ({}));
-                  if (!response.ok) {
-                    throw new Error(data.message || 'Could not share document.');
-                  }
-
-                  setSuccess(data.message || 'Permission granted successfully.');
-                  form.reset();
-                } catch (err) {
-                  setError(err.message);
-                }
-              }}
-            >
-              <label htmlFor="share-document">Document</label>
-              <select id="share-document" name="documentId" required defaultValue="">
-                <option value="" disabled>Select a document you own</option>
-                {documents
-                  .filter((doc) => doc.access_type === 'owner')
-                  .map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.filename || `Document ${doc.id}`}
-                    </option>
-                  ))}
-              </select>
-
-              <label htmlFor="recipient-email">Recipient email</label>
-              <input
-                id="recipient-email"
-                name="recipientEmail"
-                type="email"
-                placeholder="recipient@example.com"
-                required
-              />
-
-              <label htmlFor="share-permission">Permission</label>
-              <select
-                id="share-permission"
-                name="permission"
-                defaultValue="view"
-                required
-              >
-                <option value="view">View</option>
-                <option value="download">Download</option>
-                <option value="edit">Edit</option>
-              </select>
-
-              <button className="submit-button" type="submit">
-                Grant access →
-              </button>
-            </form>
-
-            <div className="tv-revoke-divider" />
-
-            <div className="tv-panel-heading">
-              <div>
-                <h2>Revoke Access</h2>
-                <p>Remove a recipient's permissions for a document you own.</p>
-              </div>
-            </div>
-
-            <form
-              className="tv-share-form"
-              onSubmit={async (event) => {
-                event.preventDefault()
-                setError('')
-                setSuccess('')
-
-                const form = event.currentTarget
-                const formData = new FormData(form)
-                const documentId = Number(formData.get('revokeDocumentId'))
-                const recipientEmail = String(
-                  formData.get('revokeEmail') || ''
-                ).trim()
-
-                if (!documentId || !recipientEmail) {
-                  setError('Select a document and enter the recipient email.')
-                  return
-                }
-
-                await revokeAccess(documentId, recipientEmail)
-                form.reset()
-              }}
-            >
-              <label htmlFor="revoke-document">Document</label>
-              <select
-                id="revoke-document"
-                name="revokeDocumentId"
-                required
-                defaultValue=""
-              >
-                <option value="" disabled>Select a document you own</option>
-                {documents
-                  .filter((doc) => doc.access_type === 'owner')
-                  .map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.filename || `Document ${doc.id}`}
-                    </option>
-                  ))}
-              </select>
-
-              <label htmlFor="revoke-email">Recipient email</label>
-              <input
-                id="revoke-email"
-                name="revokeEmail"
-                type="email"
-                placeholder="recipient@example.com"
-                required
-              />
-
-              <button className="tv-revoke-button" type="submit">
-                Revoke access
-              </button>
-            </form>
-
-            <p className="tv-muted-note">
-              This removes all permissions for the entered recipient on the
-              selected document. The action is recorded in the audit trail.
-            </p>
-          </section>
-          
-<div className="tv-recipient-manager">
-  <h3>Authorized Recipients</h3>
-  <p>Select a document to view its current recipients and permissions.</p>
-
-  <label htmlFor="recipient-document">Your document</label>
-  <select
-    id="recipient-document"
-    value={recipientDocumentId}
-    onChange={(event) => {
-      const id = event.target.value;
-
-      if (id) {
-        loadRecipients(id);
-      } else {
-        setRecipientDocumentId('');
-        setRecipients([]);
-        setRecipientsError('');
-      }
-    }}
-  >
-    <option value="">Select a document</option>
-    {documents
-      .filter((doc) => doc.access_type === 'owner')
-      .map((doc) => (
-        <option key={doc.id} value={String(doc.id)}>
-          {doc.filename || `Document ${doc.id}`}
-        </option>
-      ))}
-  </select>
-
-  {recipientsLoading && <p>Loading recipients...</p>}
-
-  {recipientsError && (
-    <div className="message error-message" role="alert">
-      {recipientsError}
-    </div>
-  )}
-
-  {!recipientsLoading && !recipientsError && recipientDocumentId && (
-    <div className="tv-recipient-list">
-      {recipients.length === 0 ? (
-        <p>No recipients currently have access to this document.</p>
-      ) : (
-        recipients.map((recipient) => {
-          const revokeKey =
-            `${recipientDocumentId}:${recipient.user_id}`;
-
-          return (
-            <article
-              className="tv-recipient-row"
-              key={recipient.user_id}
-            >
-              <span className="tv-recipient-avatar">
-                {recipient.recipient_email.charAt(0).toUpperCase()}
-              </span>
-
-              <div className="tv-recipient-details">
-                <strong>{recipient.recipient_email}</strong>
-                <span>
-                  Permissions:{' '}
-                  {(recipient.permissions || []).join(', ') || 'None'}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                className="tv-revoke-button"
-                disabled={revokingRecipient === revokeKey}
-                onClick={() => handleRevokeRecipient(recipient)}
-              >
-                {revokingRecipient === revokeKey
-                  ? 'Revoking...'
-                  : 'Revoke'}
-              </button>
-            </article>
-          );
-        })
-      )}
-    </div>
-  )}
-</div>
-
-
-{globalAuditOpen && (
- <section className="tv-panel tv-audit-panel" id="global-audit">
-    <div className="tv-panel-heading">
-      <div>
-        <span className="tv-audit-eyebrow">SECURITY MONITORING</span>
-        <h2>Global Audit Trail</h2>
-        <p>Activity across all documents you own.</p>
-      </div>
-
-      <div className="tv-audit-header-actions">
-        <button
-          className="secondary-button"
-          onClick={loadGlobalAuditLogs}
-          disabled={globalAuditLoading}
-        >
-          {globalAuditLoading ? 'Refreshing...' : '↻ Refresh'}
-        </button>
-
-        <button
-          className="secondary-button"
-          onClick={() => setGlobalAuditOpen(false)}
-        >
-          Close
-        </button>
-      </div>
-    </div>
-
-    {globalAuditError && (
-      <div className="message error-message" role="alert">
-        {globalAuditError}
-      </div>
-    )}
-
-    {globalAuditLoading && <p>Loading audit events...</p>}
-
-    {!globalAuditLoading && !globalAuditError && (
-      <>
-        <p>Total events: {globalAuditLogs.length}</p>
-
-        {globalAuditLogs.length === 0 ? (
-          <p>No audit events found for your documents yet.</p>
-        ) : (
-          <div className="tv-audit-table-wrap">
-            <table className="tv-audit-table">
-              <thead>
-                <tr>
-                  <th>Activity</th>
-                  <th>User</th>
-                  <th>Document</th>
-                  <th>Status</th>
-                  <th>IP address</th>
-                  <th>Date &amp; time</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {globalAuditLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>
-                      {String(log.action || 'Document event')
-                        .replace(/[_-]+/g, ' ')}
-                    </td>
-                    <td>{log.user_email || `User ID: ${log.user_id ?? 'Unknown'}`}</td>
-                    <td>{log.document_name || `Document ${log.document_id}`}</td>
-                    <td>{log.status || 'Unknown'}</td>
-                    <td>{log.ip_address || '—'}</td>
-                    <td>
-                      {log.created_at
-                        ? new Date(log.created_at).toLocaleString()
-                        : 'Time unavailable'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </>
-    )}
-  </section>
-)}
-
-          
-{auditDocumentId !== null && (
+          {/* Individual audit trail stays directly below the document list. */}
+          {auditDocumentId !== null && (
 <section className="tv-panel tv-audit-panel" id="document-audit">
     <div className="tv-panel-heading">
       <div>
@@ -1180,6 +863,337 @@ async function handleRevokeRecipient(recipient) {
     )}
     </section>
     ) }
+
+          <section className="tv-panel" id="sharing">
+            <div className="tv-panel-heading">
+              <div>
+                <h2>Access Control</h2>
+                <p>Share a document with a registered TrustVault user.</p>
+              </div>
+            </div>
+
+            <div className="tv-info-banner">
+              <span>ⓘ</span>
+              <p>
+                Choose a document you own and assign the minimum permission
+                the recipient needs. Only registered users can be selected
+                by email.
+              </p>
+            </div>
+
+            <form
+              className="tv-share-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setError('');
+                setSuccess('');
+
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+                const documentId = formData.get('documentId');
+                const recipientEmail = formData.get('recipientEmail');
+                const permission = formData.get('permission');
+
+                try {
+                  const response = await apiRequest(
+                    `/api/documents/${documentId}/permissions`,
+                    {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        email: recipientEmail,
+                        permission,
+                      }),
+                    }
+                  );
+
+                  const data = await response.json().catch(() => ({}));
+                  if (!response.ok) {
+                    throw new Error(data.message || 'Could not share document.');
+                  }
+
+                  setSuccess(data.message || 'Permission granted successfully.');
+                  form.reset();
+                } catch (err) {
+                  setError(err.message);
+                }
+              }}
+            >
+              <label htmlFor="share-document">Document</label>
+              <select id="share-document" name="documentId" required defaultValue="">
+                <option value="" disabled>Select a document you own</option>
+                {documents
+                  .filter((doc) => doc.access_type === 'owner')
+                  .map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.filename || `Document ${doc.id}`}
+                    </option>
+                  ))}
+              </select>
+
+              <label htmlFor="recipient-email">Recipient email</label>
+              <input
+                id="recipient-email"
+                name="recipientEmail"
+                type="email"
+                placeholder="recipient@example.com"
+                required
+              />
+
+              <label htmlFor="share-permission">Permission</label>
+              <select
+                id="share-permission"
+                name="permission"
+                defaultValue="view"
+                required
+              >
+                <option value="view">View</option>
+                <option value="download">Download</option>
+                <option value="edit">Edit</option>
+              </select>
+
+              <button className="submit-button" type="submit">
+                Grant access →
+              </button>
+            </form>
+
+            <div className="tv-revoke-divider" />
+
+            <div className="tv-panel-heading">
+              <div>
+                <h2>Revoke Access</h2>
+                <p>Remove a recipient's permissions for a document you own.</p>
+              </div>
+            </div>
+
+            <form
+              className="tv-share-form"
+              onSubmit={async (event) => {
+                event.preventDefault()
+                setError('')
+                setSuccess('')
+
+                const form = event.currentTarget
+                const formData = new FormData(form)
+                const documentId = Number(formData.get('revokeDocumentId'))
+                const recipientEmail = String(
+                  formData.get('revokeEmail') || ''
+                ).trim()
+
+                if (!documentId || !recipientEmail) {
+                  setError('Select a document and enter the recipient email.')
+                  return
+                }
+
+                await revokeAccess(documentId, recipientEmail)
+                form.reset()
+              }}
+            >
+              <label htmlFor="revoke-document">Document</label>
+              <select
+                id="revoke-document"
+                name="revokeDocumentId"
+                required
+                defaultValue=""
+              >
+                <option value="" disabled>Select a document you own</option>
+                {documents
+                  .filter((doc) => doc.access_type === 'owner')
+                  .map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.filename || `Document ${doc.id}`}
+                    </option>
+                  ))}
+              </select>
+
+              <label htmlFor="revoke-email">Recipient email</label>
+              <input
+                id="revoke-email"
+                name="revokeEmail"
+                type="email"
+                placeholder="recipient@example.com"
+                required
+              />
+
+              <button className="tv-revoke-button" type="submit">
+                Revoke access
+              </button>
+            </form>
+
+            <p className="tv-muted-note">
+              This removes all permissions for the entered recipient on the
+              selected document. The action is recorded in the audit trail.
+            </p>
+
+            <div className="tv-recipient-manager">
+  <h3>Authorized Recipients</h3>
+  <p>Select a document to view its current recipients and permissions.</p>
+
+  <label htmlFor="recipient-document">Your document</label>
+  <select
+    id="recipient-document"
+    value={recipientDocumentId}
+    onChange={(event) => {
+      const id = event.target.value;
+
+      if (id) {
+        loadRecipients(id);
+      } else {
+        setRecipientDocumentId('');
+        setRecipients([]);
+        setRecipientsError('');
+      }
+    }}
+  >
+    <option value="">Select a document</option>
+    {documents
+      .filter((doc) => doc.access_type === 'owner')
+      .map((doc) => (
+        <option key={doc.id} value={String(doc.id)}>
+          {doc.filename || `Document ${doc.id}`}
+        </option>
+      ))}
+  </select>
+
+  {recipientsLoading && <p>Loading recipients...</p>}
+
+  {recipientsError && (
+    <div className="message error-message" role="alert">
+      {recipientsError}
+    </div>
+  )}
+
+  {!recipientsLoading && !recipientsError && recipientDocumentId && (
+    <div className="tv-recipient-list">
+      {recipients.length === 0 ? (
+        <p>No recipients currently have access to this document.</p>
+      ) : (
+        recipients.map((recipient) => {
+          const revokeKey =
+            `${recipientDocumentId}:${recipient.user_id}`;
+
+          return (
+            <article
+              className="tv-recipient-row"
+              key={recipient.user_id}
+            >
+              <span className="tv-recipient-avatar">
+                {recipient.recipient_email.charAt(0).toUpperCase()}
+              </span>
+
+              <div className="tv-recipient-details">
+                <strong>{recipient.recipient_email}</strong>
+                <span>
+                  Permissions:{' '}
+                  {(recipient.permissions || []).join(', ') || 'None'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="tv-revoke-button"
+                disabled={revokingRecipient === revokeKey}
+                onClick={() => handleRevokeRecipient(recipient)}
+              >
+                {revokingRecipient === revokeKey
+                  ? 'Revoking...'
+                  : 'Revoke'}
+              </button>
+            </article>
+          );
+        })
+      )}
+    </div>
+  )}
+</div>
+          </section>
+          
+
+
+
+{globalAuditOpen && (
+ <section className="tv-panel tv-audit-panel" id="global-audit">
+    <div className="tv-panel-heading">
+      <div>
+        <span className="tv-audit-eyebrow">SECURITY MONITORING</span>
+        <h2>Global Audit Trail</h2>
+        <p>Activity across all documents you own.</p>
+      </div>
+
+      <div className="tv-audit-header-actions">
+        <button
+          className="secondary-button"
+          onClick={loadGlobalAuditLogs}
+          disabled={globalAuditLoading}
+        >
+          {globalAuditLoading ? 'Refreshing...' : '↻ Refresh'}
+        </button>
+
+        <button
+          className="secondary-button"
+          onClick={() => setGlobalAuditOpen(false)}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    {globalAuditError && (
+      <div className="message error-message" role="alert">
+        {globalAuditError}
+      </div>
+    )}
+
+    {globalAuditLoading && <p>Loading audit events...</p>}
+
+    {!globalAuditLoading && !globalAuditError && (
+      <>
+        <p>Total events: {globalAuditLogs.length}</p>
+
+        {globalAuditLogs.length === 0 ? (
+          <p>No audit events found for your documents yet.</p>
+        ) : (
+          <div className="tv-audit-table-wrap">
+            <table className="tv-audit-table">
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>User</th>
+                  <th>Document</th>
+                  <th>Status</th>
+                  <th>IP address</th>
+                  <th>Date &amp; time</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {globalAuditLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>
+                      {String(log.action || 'Document event')
+                        .replace(/[_-]+/g, ' ')}
+                    </td>
+                    <td>{log.user_email || `User ID: ${log.user_id ?? 'Unknown'}`}</td>
+                    <td>{log.document_name || `Document ${log.document_id}`}</td>
+                    <td>{log.status || 'Unknown'}</td>
+                    <td>{log.ip_address || '—'}</td>
+                    <td>
+                      {log.created_at
+                        ? new Date(log.created_at).toLocaleString()
+                        : 'Time unavailable'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    )}
+  </section>
+)}
+
+          
+
     
           <footer className="tv-footer">
             <span>TrustVault</span> · Secure document sharing
