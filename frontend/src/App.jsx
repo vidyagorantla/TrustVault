@@ -489,7 +489,7 @@ async function handleRevokeRecipient(recipient) {
           </a>
           <a
   className="tv-nav"
-  href="#audit"
+ href="#global-audit"
   onClick={(event) => {
     event.preventDefault();
     loadGlobalAuditLogs();
@@ -935,7 +935,7 @@ async function handleRevokeRecipient(recipient) {
 
 
 {globalAuditOpen && (
-  <section className="tv-panel tv-audit-panel" id="audit">
+ <section className="tv-panel tv-audit-panel" id="global-audit">
     <div className="tv-panel-heading">
       <div>
         <span className="tv-audit-eyebrow">SECURITY MONITORING</span>
@@ -1018,7 +1018,7 @@ async function handleRevokeRecipient(recipient) {
 
           
 {auditDocumentId !== null && (
-<section className="tv-panel tv-audit-panel" id="global-audit">
+<section className="tv-panel tv-audit-panel" id="document-audit">
     <div className="tv-panel-heading">
       <div>
         <span className="tv-audit-eyebrow">SECURITY MONITORING</span>
