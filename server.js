@@ -50,6 +50,52 @@ const pool = process.env.DATABASE_URL
       password: process.env.DB_PASSWORD,
     });
 
+    
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      owner_id INTEGER NOT NULL REFERENCES users(id),
+      filename TEXT NOT NULL,
+      storage_key TEXT NOT NULL,
+      content_hash VARCHAR(64) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS document_permissions (
+      id SERIAL PRIMARY KEY,
+      document_id INTEGER NOT NULL
+        REFERENCES documents(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
+      permission VARCHAR(20) NOT NULL
+        CHECK (permission IN ('view', 'download', 'edit')),
+      granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (document_id, user_id, permission)
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+      action VARCHAR(100) NOT NULL,
+      status VARCHAR(20) NOT NULL,
+      ip_address TEXT,
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  console.log("TrustVault database tables initialized");
+}
+
 
 // -------------------- FILE UPLOAD CONFIGURATION --------------------
 
@@ -1122,9 +1168,20 @@ const auditResult = await pool.query(
 
 // -------------------- START SERVER --------------------
 
-const server = app.listen(PORT, () => {
-  console.log(`TrustVault API running on port ${PORT}`);
-});
+
+let server;
+
+initializeDatabase()
+  .then(() => {
+    server = app.listen(PORT, () => {
+      console.log(`TrustVault API running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Database initialization failed:", error.message);
+    process.exit(1);
+  });
+
 
 // -------------------- GRACEFUL SHUTDOWN --------------------
 
