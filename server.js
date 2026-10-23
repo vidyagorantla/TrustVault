@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -142,7 +141,7 @@ app.get("/api/health", async (req, res) => {
       database: result.rows[0].database,
     });
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    console.error("Database connection failed:", error?.message || error?.code ||String(error));
     res.status(503).json({
       status: "error",
       message: "Database connection unavailable",
