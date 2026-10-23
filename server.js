@@ -1,3 +1,17 @@
+
+const cors = require("cors");
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://trustvault-ten-flax.vercel.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
 require("dotenv").config();
 
 const express = require("express");
@@ -14,14 +28,6 @@ const cors = require("cors");
 const app = express();
 
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://trustvault-ten-flax.vercel.app/"
-];
-
-app.use(cors({
-  origin: allowedOrigins
-}));
 
 
 app.use(helmet());
