@@ -40,6 +40,10 @@ const [recipients, setRecipients] = useState([]);
 const [recipientsLoading, setRecipientsLoading] = useState(false);
 const [recipientsError, setRecipientsError] = useState('');
 const [revokingRecipient, setRevokingRecipient] = useState('');
+const [globalAuditOpen, setGlobalAuditOpen] = useState(false);
+const [globalAuditLogs, setGlobalAuditLogs] = useState([]);
+const [globalAuditLoading, setGlobalAuditLoading] = useState(false);
+const [globalAuditError, setGlobalAuditError] = useState('');
 
 
   async function apiRequest(path, options = {}) {
@@ -318,7 +322,36 @@ async function viewDocument(doc) {
       setAuditLoading(false)
     }
   }
+async function loadGlobalAuditLogs() {
+  setGlobalAuditOpen(true);
+  setGlobalAuditLoading(true);
+  setGlobalAuditError('');
 
+  try {
+    const response = await apiRequest('/api/audit-logs');
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Could not load global audit trail.');
+    }
+
+    setGlobalAuditLogs(
+      Array.isArray(data.auditLogs) ? data.auditLogs : []
+    );
+  } catch (err) {
+    setGlobalAuditError(err.message);
+  } finally {
+    setGlobalAuditLoading(false);
+  }
+}
+useEffect(() => {
+  if (globalAuditOpen) {
+    document.getElementById('global-audit')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }
+}, [globalAuditOpen]);
 
   async function revokeAccess(documentId, recipientEmail) {
     const confirmed = window.confirm(
@@ -454,9 +487,16 @@ async function handleRevokeRecipient(recipient) {
           <a className="tv-nav" href="#sharing">
             <span>♧</span> Access control
           </a>
-          <a className="tv-nav" href="#audit">
-            <span>≋</span> Audit trail
-          </a>
+          <a
+  className="tv-nav"
+  href="#audit"
+  onClick={(event) => {
+    event.preventDefault();
+    loadGlobalAuditLogs();
+  }}
+>
+  <span>≋</span> Audit trail
+</a>
 
           <div className="tv-sidebar-bottom">
             <div className="tv-security-icon">✓</div>
@@ -894,9 +934,91 @@ async function handleRevokeRecipient(recipient) {
 </div>
 
 
+{globalAuditOpen && (
+  <section className="tv-panel tv-audit-panel" id="audit">
+    <div className="tv-panel-heading">
+      <div>
+        <span className="tv-audit-eyebrow">SECURITY MONITORING</span>
+        <h2>Global Audit Trail</h2>
+        <p>Activity across all documents you own.</p>
+      </div>
+
+      <div className="tv-audit-header-actions">
+        <button
+          className="secondary-button"
+          onClick={loadGlobalAuditLogs}
+          disabled={globalAuditLoading}
+        >
+          {globalAuditLoading ? 'Refreshing...' : '↻ Refresh'}
+        </button>
+
+        <button
+          className="secondary-button"
+          onClick={() => setGlobalAuditOpen(false)}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    {globalAuditError && (
+      <div className="message error-message" role="alert">
+        {globalAuditError}
+      </div>
+    )}
+
+    {globalAuditLoading && <p>Loading audit events...</p>}
+
+    {!globalAuditLoading && !globalAuditError && (
+      <>
+        <p>Total events: {globalAuditLogs.length}</p>
+
+        {globalAuditLogs.length === 0 ? (
+          <p>No audit events found for your documents yet.</p>
+        ) : (
+          <div className="tv-audit-table-wrap">
+            <table className="tv-audit-table">
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>User</th>
+                  <th>Document</th>
+                  <th>Status</th>
+                  <th>IP address</th>
+                  <th>Date &amp; time</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {globalAuditLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>
+                      {String(log.action || 'Document event')
+                        .replace(/[_-]+/g, ' ')}
+                    </td>
+                    <td>{log.user_email || `User ID: ${log.user_id ?? 'Unknown'}`}</td>
+                    <td>{log.document_name || `Document ${log.document_id}`}</td>
+                    <td>{log.status || 'Unknown'}</td>
+                    <td>{log.ip_address || '—'}</td>
+                    <td>
+                      {log.created_at
+                        ? new Date(log.created_at).toLocaleString()
+                        : 'Time unavailable'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    )}
+  </section>
+)}
+
           
 {auditDocumentId !== null && (
-  <section className="tv-panel tv-audit-panel" id="audit">
+<section className="tv-panel tv-audit-panel" id="global-audit">
     <div className="tv-panel-heading">
       <div>
         <span className="tv-audit-eyebrow">SECURITY MONITORING</span>

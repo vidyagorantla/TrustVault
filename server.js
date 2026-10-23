@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -11,6 +10,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+
 
 const app = express();
 
@@ -1071,6 +1071,48 @@ try {
     }
   }
 );
+
+
+/* -------------------- GLOBAL AUDIT TRAIL -------------------- */
+
+app.get("/api/audit-logs", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await pool.query(
+      `SELECT
+         a.id,
+         a.user_id,
+         u.email AS user_email,
+         a.document_id,
+         d.filename AS document_name,
+         a.action,
+         a.status,
+         a.ip_address,
+         a.details,
+         a.created_at
+       FROM audit_logs a
+       JOIN documents d ON d.id = a.document_id
+       LEFT JOIN users u ON u.id = a.user_id
+       WHERE d.owner_id = $1
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT 500`,
+      [userId]
+    );
+
+    return res.json({
+      message: "Global audit logs retrieved successfully",
+      count: result.rows.length,
+      auditLogs: result.rows
+    });
+  } catch (error) {
+    console.error("Global audit retrieval failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to retrieve global audit logs"
+    });
+  }
+});
+
 
 // -------------------- ERROR HANDLING --------------------
 
